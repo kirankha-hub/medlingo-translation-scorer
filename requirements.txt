@@ -6,3 +6,6 @@ sacrebleu
 sentence-transformers
 unbabel-comet
 scikit-learn
+# Provides pkg_resources, which torchmetrics (via COMET/pytorch-lightning)
+# still imports; not installed by default on Python 3.12+.
+setuptools

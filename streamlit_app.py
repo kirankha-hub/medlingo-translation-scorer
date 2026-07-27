@@ -71,13 +71,19 @@ def score_pairs(refs: tuple, cands: tuple, use_comet: bool):
     cand_emb = cand_emb / np.linalg.norm(cand_emb, axis=1, keepdims=True)
     cosines = np.sum(ref_emb * cand_emb, axis=1).clip(-1, 1)
 
-    comet_scores, comet_system = None, None
+    comet_scores, comet_system, comet_error = None, None, None
     if use_comet:
-        data = [{"src": r, "mt": c, "ref": r} for r, c in zip(refs, cands)]
-        out = comet_model().predict(data, batch_size=8, gpus=0,
-                                    num_workers=1, progress_bar=False)
-        comet_scores = list(out.scores)
-        comet_system = float(out.system_score)
+        try:
+            data = [{"src": r, "mt": c, "ref": r} for r, c in zip(refs, cands)]
+            out = comet_model().predict(data, batch_size=8, gpus=0,
+                                        num_workers=1, progress_bar=False)
+            comet_scores = list(out.scores)
+            comet_system = float(out.system_score)
+        except Exception as e:
+            # COMET is heavy (torch + a ~2 GB model) and can fail to load on
+            # memory-limited hosts like Streamlit Community Cloud. Don't let
+            # that take down the whole app — skip COMET and report why.
+            comet_error = str(e)
 
     rows = []
     for i, (r, c) in enumerate(zip(refs, cands)):
@@ -98,7 +104,7 @@ def score_pairs(refs: tuple, cands: tuple, use_comet: bool):
                "chrf": corpus_chrf.score, "ter": corpus_ter.score,
                "sem_mean": float(np.mean(cosines)),
                "sent_bleu_mean": float(np.mean([r["BLEU"] for r in rows])),
-               "comet": comet_system}
+               "comet": comet_system, "comet_error": comet_error}
     return pd.DataFrame(rows), summary
 
 
@@ -166,6 +172,12 @@ if uploaded:
 
     with st.spinner(f"Scoring {len(refs)} sentences…"):
         table, s = score_pairs(tuple(refs), tuple(cands), use_comet)
+
+    if use_comet and s.get("comet_error"):
+        st.warning("COMET could not be computed, so it's omitted below. "
+                   "All other scores are unaffected. This usually means the "
+                   "host ran out of memory loading the model.\n\n"
+                   f"Details: {s['comet_error']}")
 
     # ---- headline scores, one row
     labels = ["Overall BLEU (corpus)", "Mean semantic similarity",
