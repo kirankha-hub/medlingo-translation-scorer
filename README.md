@@ -1,3 +1,14 @@
+---
+title: MedLingo Translation Scorer
+emoji: 🩺
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+app_file: streamlit_app.py
+python_version: "3.11"
+pinned: false
+---
+
 # MedLingo Translation Scorer
 
 A web app to evaluate MedLingo's patient-friendly rewrites of medical scripts
@@ -29,9 +40,30 @@ COMET can be toggled off in the app for faster scoring.
 
 ## Deploy
 
-Works on [Streamlit Community Cloud](https://share.streamlit.io) (toggle COMET
-off — the model exceeds the free tier's memory) or Hugging Face Spaces
-(free CPU tier fits full COMET).
+### Hugging Face Spaces (recommended — full COMET works)
+
+The free CPU tier gives ~16 GB RAM, enough for the ~2.3 GB COMET model. The
+YAML header at the top of this README configures the Space automatically.
+
+1. Create a new Space at https://huggingface.co/new-space — choose **SDK:
+   Streamlit**, hardware **CPU basic (free)**.
+2. Push this repo to the Space's git remote:
+
+   ```bash
+   git remote add space https://huggingface.co/spaces/<your-username>/<space-name>
+   git push space main
+   ```
+
+   (Authenticate with a Hugging Face access token from
+   https://huggingface.co/settings/tokens when prompted for a password.)
+3. The Space builds and starts on its own. First run downloads the COMET model.
+
+### Streamlit Community Cloud
+
+Works on [Streamlit Community Cloud](https://share.streamlit.io), but the COMET
+model exceeds the free tier's memory, so leave COMET toggled off there — the
+app falls back to BLEU/chrF/TER plus semantic similarity. Set the Python
+version to 3.12 in the app's Advanced settings.
 
 ## Interpreting the scores
 
