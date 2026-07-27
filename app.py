@@ -19,6 +19,8 @@ import pandas as pd
 import sacrebleu
 from flask import Flask, request, render_template_string, send_file, abort
 
+from file_loader import read_table
+
 # Same model as https://github.com/fivehills/TextSim_MTQE — loaded once, lazily.
 _EMBEDDER = None
 
@@ -49,15 +51,9 @@ RESULTS = {}   # token -> results xlsx bytes
 
 
 def load_table(filename: str, data: bytes) -> pd.DataFrame:
-    suffix = Path(filename).suffix.lower()
-    buf = io.BytesIO(data)
-    if suffix in (".xlsx", ".xlsm", ".xls"):
-        return pd.read_excel(buf)
-    if suffix in (".csv", ".txt"):
-        return pd.read_csv(buf)
-    if suffix == ".tsv":
-        return pd.read_csv(buf, sep="\t")
-    raise ValueError(f"Unsupported file type: {suffix} — use .xlsx or .csv")
+    # Detect the real format by content (magic bytes), not the extension, so a
+    # spreadsheet mislabeled .csv (or a CSV named .xlsx) still loads correctly.
+    return read_table(data, filename)
 
 
 def autodetect(cols):

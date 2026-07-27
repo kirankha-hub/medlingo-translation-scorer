@@ -17,6 +17,8 @@ import pandas as pd
 import sacrebleu
 import streamlit as st
 
+from file_loader import read_table
+
 st.set_page_config(page_title="MedLingo Translation Scorer",
                    page_icon="🩺", layout="wide")
 
@@ -124,19 +126,15 @@ st.caption("Upload a spreadsheet with the original script and the MedLingo outpu
            "COMET) and a score for every sentence.")
 
 uploaded = st.file_uploader("Excel or CSV with the two columns",
-                            type=["xlsx", "xlsm", "xls", "csv", "tsv"])
+                            type=["xlsx", "xlsm", "xls", "csv", "tsv", "txt"])
 
 use_comet = st.toggle("Include COMET (slower; needs the 2 GB model)", value=True)
 
 if uploaded:
-    suffix = Path(uploaded.name).suffix.lower()
     try:
-        if suffix in (".xlsx", ".xlsm", ".xls"):
-            df = pd.read_excel(uploaded)
-        elif suffix == ".tsv":
-            df = pd.read_csv(uploaded, sep="\t")
-        else:
-            df = pd.read_csv(uploaded)
+        # Detect the real format by content, not the extension, so a
+        # spreadsheet mislabeled .csv (or a CSV named .xlsx) still loads.
+        df = read_table(uploaded.getvalue(), uploaded.name)
     except Exception as e:
         st.error(f"Could not read the file: {e}")
         st.stop()
