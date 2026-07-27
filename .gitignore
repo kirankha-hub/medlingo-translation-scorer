@@ -5,7 +5,3 @@ __pycache__/
 *.xlsx
 *.csv
 !requirements.txt
-
-# Secrets — never commit real tokens
-.env
-.env.local
