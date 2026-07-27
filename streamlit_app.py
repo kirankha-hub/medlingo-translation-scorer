@@ -45,15 +45,41 @@ COMET_MIN_GB = 3.0
 
 
 def available_ram_gb():
-    """Best-effort available system RAM in GB, or None if it can't be read."""
+    """Best-effort memory ceiling in GB, honoring container (cgroup) limits.
+
+    Inside a container, /proc/meminfo reports the *host's* memory, not the
+    container's limit — so we also read the cgroup memory limit and take the
+    smaller of the two. Returns None if nothing can be read (e.g. macOS),
+    meaning "assume enough and let it run".
+    """
+    limits_bytes = []
+
+    # Host-visible available memory.
     try:
         with open("/proc/meminfo") as f:
             for line in f:
                 if line.startswith("MemAvailable:"):
-                    return int(line.split()[1]) / (1024 * 1024)  # kB -> GB
+                    limits_bytes.append(int(line.split()[1]) * 1024)  # kB->B
+                    break
     except Exception:
         pass
-    return None  # e.g. macOS: no /proc — assume enough and let it run
+
+    # Container memory limit (cgroup v2, then v1).
+    for path in ("/sys/fs/cgroup/memory.max",
+                 "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            with open(path) as f:
+                raw = f.read().strip()
+            if raw and raw != "max":
+                val = int(raw)
+                if 0 < val < (1 << 62):  # ignore "unlimited" sentinels
+                    limits_bytes.append(val)
+        except Exception:
+            pass
+
+    if not limits_bytes:
+        return None
+    return min(limits_bytes) / (1024 ** 3)  # bytes -> GB
 
 
 # ---------------------------------------------------------------- scoring
