@@ -38,6 +38,24 @@ def comet_model():
     return load_from_checkpoint(download_model("Unbabel/wmt22-comet-da"))
 
 
+# COMET (torch + a ~2.3 GB model) needs several GB of RAM. On a small host it
+# would be killed by the OS out-of-memory reaper (a hard crash a try/except
+# can't catch), so we check available memory first and skip COMET if it's low.
+COMET_MIN_GB = 3.0
+
+
+def available_ram_gb():
+    """Best-effort available system RAM in GB, or None if it can't be read."""
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / (1024 * 1024)  # kB -> GB
+    except Exception:
+        pass
+    return None  # e.g. macOS: no /proc — assume enough and let it run
+
+
 # ---------------------------------------------------------------- scoring
 
 def interpret(score):
@@ -74,6 +92,12 @@ def score_pairs(refs: tuple, cands: tuple, use_comet: bool):
     comet_scores, comet_system, comet_error = None, None, None
     if use_comet:
         try:
+            avail = available_ram_gb()
+            if avail is not None and avail < COMET_MIN_GB:
+                raise MemoryError(
+                    f"Only {avail:.1f} GB RAM available; COMET needs about "
+                    f"{COMET_MIN_GB:.0f} GB. Run locally or on a larger host "
+                    "to enable COMET.")
             data = [{"src": r, "mt": c, "ref": r} for r, c in zip(refs, cands)]
             out = comet_model().predict(data, batch_size=8, gpus=0,
                                         num_workers=1, progress_bar=False)
@@ -134,7 +158,16 @@ st.caption("Upload a spreadsheet with the original script and the MedLingo outpu
 uploaded = st.file_uploader("Excel or CSV with the two columns",
                             type=["xlsx", "xlsm", "xls", "csv", "tsv", "txt"])
 
-use_comet = st.toggle("Include COMET (slower; needs the 2 GB model)", value=True)
+# Default COMET on only where there's enough RAM for it (e.g. local machines);
+# off on memory-limited hosts like Streamlit Community Cloud, where it can't run.
+_ram = available_ram_gb()
+_comet_ok = _ram is None or _ram >= COMET_MIN_GB
+use_comet = st.toggle(
+    "Include COMET (slower; needs ~3 GB RAM and a ~2.3 GB model)",
+    value=_comet_ok,
+    help=None if _comet_ok else
+    f"Only ~{_ram:.1f} GB RAM here — COMET is skipped on this host. "
+    "Run locally for COMET.")
 
 if uploaded:
     try:
