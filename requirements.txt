@@ -7,5 +7,6 @@ sentence-transformers
 unbabel-comet
 scikit-learn
 # Provides pkg_resources, which torchmetrics (via COMET/pytorch-lightning)
-# still imports; not installed by default on Python 3.12+.
-setuptools
+# still imports. Not installed by default on Python 3.12+, and recent
+# setuptools (>=81) removed pkg_resources — so pin to a version that ships it.
+setuptools<81

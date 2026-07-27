@@ -175,8 +175,9 @@ if uploaded:
 
     if use_comet and s.get("comet_error"):
         st.warning("COMET could not be computed, so it's omitted below. "
-                   "All other scores are unaffected. This usually means the "
-                   "host ran out of memory loading the model.\n\n"
+                   "All other scores are unaffected. Common causes: the host "
+                   "ran out of memory loading the ~2 GB model, or a COMET "
+                   "dependency failed to import.\n\n"
                    f"Details: {s['comet_error']}")
 
     # ---- headline scores, one row
